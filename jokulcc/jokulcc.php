@@ -146,6 +146,7 @@ class JokulCc extends PaymentModule
 			`amount` DECIMAL( 20,2 ) NOT NULL DEFAULT '0',
 			`raw_post_data` TEXT COLLATE utf8_unicode_ci,  
 			`message` TEXT COLLATE utf8_unicode_ci,
+			`data_notif` TEXT COLLATE utf8_unicode_ci,  
 			`notif` VARCHAR(2) COLLATE utf8_unicode_ci DEFAULT '0'
 		)";
 
@@ -155,17 +156,14 @@ class JokulCc extends PaymentModule
 	private function _postValidation()
 	{
 		if (Tools::isSubmit('btnSubmit')) {
-			if (intval(Tools::getValue('server_cc_dest')) == 0) {
-				if (!Tools::getValue('mall_cc_id_dev'))
-					$this->_postErrors[] = $this->l('Client ID is required.');
-				elseif (!Tools::getValue('shared_cc_key_dev'))
-					$this->_postErrors[] = $this->l('Secret Key is required.');
-			} else {
-				if (!Tools::getValue('mall_cc_id_prod'))
-					$this->_postErrors[] = $this->l('Client ID is required.');
-				elseif (!Tools::getValue('shared_cc_key_prod'))
-					$this->_postErrors[] = $this->l('Secret Key is required.');
-			}
+			if (!Tools::getValue('mall_cc_id_dev'))
+				$this->$_postErrors[] = $this->l('Client ID is required.');
+			if (!Tools::getValue('shared_cc_key_dev'))
+				$this->$_postErrors[] = $this->l('Secret Key is required.');
+			if (!Tools::getValue('mall_cc_id_prod'))
+				$this->$_postErrors[] = $this->l('Client ID is required.');
+			if (!Tools::getValue('shared_cc_key_prod'))
+				$this->$_postErrors[] = $this->l('Secret Key is required.');
 		}
 	}
 
@@ -194,10 +192,10 @@ class JokulCc extends PaymentModule
 	{
 		if (Tools::isSubmit('btnSubmit')) {
 			$this->_postValidation();
-			if (!sizeof($this->_postErrors)) {
+			if (!sizeof($this->$_postErrors)) {
 				$this->_postProcess();
 			} else {
-				foreach ($this->_postErrors as $err) {
+				foreach ($this->$_postErrors as $err) {
 					$this->_html .= '<div class="alert error">' . $err . '</div>';
 				}
 			}
@@ -588,6 +586,8 @@ class JokulCc extends PaymentModule
 		);
 
 		$bodyJson = json_encode($data);
+		$this->doku_log($this, " CREDIT CARD REQUEST ".$bodyJson, $invoiceNumber, '');
+
 		$dataBody = str_replace(array("\r", "\n"), array("\\r", "\\n"), $bodyJson);
 		$digest = base64_encode(hash("sha256", $dataBody, True));
 
@@ -601,6 +601,7 @@ class JokulCc extends PaymentModule
 		
 		$getUrl = parse_ini_file($URL_MERCHANTHOSTED);
 		$ch = curl_init($getUrl['CC'].$requestTarget);
+		$this->doku_log($this, " URL WALLET TOKEN ".$getUrl['CC'].$requestTarget, $invoiceNumber, '');
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $bodyJson);
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
@@ -626,6 +627,7 @@ class JokulCc extends PaymentModule
 
 		if ($httpcode == 200) {
 			$urlCC = $GETDATARESULT->credit_card_payment_page->url;
+			$this->doku_log($this, " CREDIT CARD RESPONSE ".json_encode($GETDATARESULT), $invoiceNumber, '');
 			$this->addTransactions($invoiceNumber, $amount, $orderid);
 			curl_close($ch);
 		} else {
@@ -671,7 +673,6 @@ class JokulCc extends PaymentModule
 			'URL_MERCHANTHOSTED'			=> $URL_MERCHANTHOSTED,
 			'PAYMENT_CHANNELS_CC'    		=> Tools::safeOutput(Configuration::get('PAYMENT_CHANNELS_CC'))
 		);
-
 		$smarty->assign($SMARTY_ARRAY);
 	}
 
@@ -684,6 +685,10 @@ class JokulCc extends PaymentModule
 		$trx['amount']              			= $amount;
 		$trx['message']             			= "Jokul Credit Card";
 
+		$dataTransactions = array();
+		$dataTransactions = array('ip address' => $trx['ip_address'], 'process type' => $trx['process_type'], 'process datetime' => $trx['process_datetime'], 'order id' => $trx['order_id'], 'invoice number' => $trx['invoice_number'], 'amount' => $trx['amount'], 'message' => $trx['message']);
+		$this->doku_log($this, " PARAMS WALLET TOKEN ADD DB ".json_encode($dataTransactions), $invoiceNumber, '');
+		$trx['raw_post_data'] = json_encode($dataTransactions);
 		$order_id = $this->get_cart_id($orderId);
 		if (!$order_id) {
 			$this->add_jokulcc($trx);
@@ -905,21 +910,21 @@ class JokulCc extends PaymentModule
 		$db = Db::getInstance();
 		$db_prefix = _DB_PREFIX_;
 		if ($notif == '0') {
-			if ($rawPost != '') {
-				$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'NOTIFY', raw_post_data ='".$rawPost."' , process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
+			if ($rawPost != '' or $rawPost != null) {
+				$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'NOTIFY', data_notif ='".$rawPost."' , process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
 			} else {
 				$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'NOTIFY', process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
 			}
 		} else {
 			if ($state == 1) {
-				if ($rawPost != '') {
-					$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'NOTIFY', raw_post_data ='".$rawPost."' , process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
+				if ($rawPost != '' or $rawPost != null) {
+					$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'NOTIFY', data_notif ='".$rawPost."' , process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
 				} else {
 					$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'NOTIFY', process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
 				}
 			} else {
-				if ($rawPost != '') {
-					$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'PAYMENT_PENDING', raw_post_data ='".$rawPost."' , process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
+				if ($rawPost != '' or $rawPost != null) {
+					$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'PAYMENT_PENDING', data_notif ='".$rawPost."' , process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
 				} else {
 					$query = "UPDATE " . $db_prefix . "jokulcc SET process_type  = 'PAYMENT_PENDING', process_datetime  ='".$dateTime."' , notif  ='".$notif."' where order_id ='" . $cartId . "'";
 				}
@@ -1006,6 +1011,17 @@ class JokulCc extends PaymentModule
 			return Configuration::get('SHARED_CC_KEY_PROD');
 		}
 	}
+
+	function doku_log($class, $log_msg, $invoiceNumber = "", $path)
+    {
+        $log_filename = "doku_log";
+        $log_header = date(DATE_ATOM, time()) . ' ' . get_class($class) . '---> ' . $invoiceNumber;
+        if (!file_exists($path.$log_filename)) {
+            mkdir($path.$log_filename, 0777, true);
+        }
+        $log_file_data = $path.$log_filename . '/log_' . date('d-M-Y') . '.log';
+        file_put_contents($log_file_data, $log_header . $log_msg . "\n", FILE_APPEND);
+    }
 
 	function guidv4($data = null)
 	{

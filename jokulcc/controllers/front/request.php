@@ -2,7 +2,6 @@
 
 class JokulCcRequestModuleFrontController extends ModuleFrontController
 {
-	public $ssl = true;
 
 	public function postProcess()
 	{
@@ -34,29 +33,23 @@ class JokulCcRequestModuleFrontController extends ModuleFrontController
 				$order->reference = $_GET['invoiceNumber'];
 				$order->update();
 
-				$statusNotif = $jokulcc->get_request_notif($_GET['orderid']);
 				$dateTime = gmdate("Y-m-d H:i:s");
+				$statusNotif = $jokulcc->get_request_notif($_GET['orderid']);
 				if ($statusNotif == '1') {
 					$status_no      = $config['DOKU_CC_PAYMENT_RECEIVED'];
 					$jokulcc->update_notify($_GET['orderid'], '', $dateTime, '1', '1');
-				} else {
-					$status_no      = $config['DOKU_CC_AWAITING_PAYMENT'];
-					$jokulcc->update_notify($_GET['orderid'], '', $dateTime, '1', '0');
+					
+					$email_data = array(
+						'{payment_channel}' => $payment_channel,
+						'{amount}' => $_GET['amount']
+					);
+					$jokulcc->set_order_status($order_id, $status_no, $email_data);
 				}
 				
 				$template       = "pending_cc.tpl";
 				$payment_channel = "Credit Card";
 						
-				$this->context->smarty->assign(array(
-					'payment_channel' => $payment_channel));
-
-				# Update order status
-				$email_data = array(
-					'{payment_channel}' => $payment_channel,
-					'{amount}' => $_GET['amount']
-				);
-
-				$jokulcc->set_order_status($order_id, $status_no, $email_data);
+				$this->context->smarty->assign(array('payment_channel' => $payment_channel));
 				$this->setTemplate($path . $template);
 
 				$cart = $this->context->cart;
@@ -74,7 +67,6 @@ class JokulCcRequestModuleFrontController extends ModuleFrontController
 				$total = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
 				Configuration::updateValue('PAYMENT_CHANNEL', trim($payment_channel));
-
 				Configuration::updateValue('PAYMENT_AMOUNT', $_GET['amount']);
 
 				$config = Configuration::getMultiple(array('SERVER_CC_DEST', 'MALL_CC_ID_DEV', 'SHARED_CC_KEY_DEV', 'MALL_CC_ID_PROD', 'SHARED_CC_KEY_PROD'));

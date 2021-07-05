@@ -16,8 +16,8 @@ switch ($task) {
 			http_response_code(404);
 			die;
 		} else {
+			$jokulcc->doku_log($jokulcc, " CREDIT CARD NOTIF RAW POST DATA ".json_encode($json_data_input), $json_data_input['order']['invoice_number'], '../../');
 			$trx = array();
-
 			$config = $jokulcc->getServerConfig();
 			
 			$order_id_ref = $jokulcc->get_order_id_jokul($json_data_input['order']['invoice_number']);
@@ -32,6 +32,7 @@ switch ($task) {
 			$signature = generateSignature($headers, $jokulcc->getKey());
 			
 			if ($headers['Signature'] == $signature) {
+				$jokulcc->doku_log($jokulcc, " VIRTUAL ACCOUNT NOTIF SIGNATURE SUCCESS ".$signature, $json_data_input['order']['invoice_number'], '../../');
 				$trx['raw_post_data']         = file_get_contents('php://input');
 				$trx['amount']                = $json_data_input['order']['amount'];
 				$trx['invoice_number']        = $json_data_input['order']['invoice_number'];
@@ -48,7 +49,7 @@ switch ($task) {
 						$status         = "completed";
 						$status_no      = $config['DOKU_CC_PAYMENT_RECEIVED'];
 						$jokulcc->emptybag();
-						
+
 						if ($notifSuccess == true) {
 							$jokulcc->set_order_status($order_id, $status_no);
 							$jokulcc->update_notify($order_id_ref, $rawPost, $dateTime, '0', '0');
@@ -70,12 +71,11 @@ switch ($task) {
 					}
 				}
 			} else {
+				$jokulcc->doku_log($jokulcc, " VIRTUAL ACCOUNT NOTIF SIGNATURE FAILED ".$signature, $json_data_input['order']['invoice_number'], '../../');
 				http_response_code(400);
 			}
 		}
-
 		break;
-
 	default:
 		echo "Stop : Access Not Valid";
 		die;
