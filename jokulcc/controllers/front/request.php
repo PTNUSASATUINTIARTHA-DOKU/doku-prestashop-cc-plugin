@@ -22,7 +22,7 @@ class JokulCcRequestModuleFrontController extends ModuleFrontController
 				$extra_vars = array(
                     '{order_name}' => $_GET['invoiceNumber']
                 );
-
+                
 				if (!$order_id) {
 					$order_state = $config['DOKU_CC_AWAITING_PAYMENT'];
 					$jokulcc->validateOrder($_GET['orderid'], $order_state, $_GET['amount'], $jokulcc->displayName,'', $extra_vars);
@@ -32,19 +32,6 @@ class JokulCcRequestModuleFrontController extends ModuleFrontController
 				$order = new Order($order_id);
 				$order->reference = $_GET['invoiceNumber'];
 				$order->update();
-
-				$dateTime = gmdate("Y-m-d H:i:s");
-				$statusNotif = $jokulcc->get_request_notif($_GET['orderid']);
-				if ($statusNotif == '1') {
-					$status_no      = $config['DOKU_CC_PAYMENT_RECEIVED'];
-					$jokulcc->update_notify($_GET['orderid'], '', $dateTime, '1', '1');
-					
-					$email_data = array(
-						'{payment_channel}' => $payment_channel,
-						'{amount}' => $_GET['amount']
-					);
-					$jokulcc->set_order_status($order_id, $status_no, $email_data);
-				}
 				
 				$template       = "pending_cc.tpl";
 				$payment_channel = "Credit Card";

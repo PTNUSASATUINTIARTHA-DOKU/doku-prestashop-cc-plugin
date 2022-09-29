@@ -16,6 +16,7 @@ switch ($task) {
 			http_response_code(404);
 			die;
 		} else {
+		    usleep(20000000);
 			$jokulcc->doku_log($jokulcc, " CREDIT CARD NOTIF RAW POST DATA ".json_encode($json_data_input), $json_data_input['order']['invoice_number'], '../../');
 			$trx = array();
 			$config = $jokulcc->getServerConfig();
@@ -53,6 +54,7 @@ switch ($task) {
 						if ($notifSuccess == true) {
 							$jokulcc->set_order_status($order_id, $status_no);
 							$jokulcc->update_notify($order_id_ref, $rawPost, $dateTime, '0', '0');
+							$jokulcc->doku_log($jokulcc, " VIRTUAL ACCOUNT UPDATE STATUS DOKU_CC_PAYMENT_RECEIVED", $json_data_input['order']['invoice_number'], '../../');
 						} else {
 							$jokulcc->update_notify($order_id_ref, $rawPost, $dateTime, '1', '0');
 						}
@@ -64,6 +66,7 @@ switch ($task) {
 						if ($notifSuccess == true) {
 							$jokulcc->set_order_status($order_id, $status_no);
 							$jokulcc->update_notify($order_id_ref, $rawPost, $dateTime, '0', '0');
+							$jokulcc->doku_log($jokulcc, " VIRTUAL ACCOUNT UPDATE STATUS DOKU_CC_FAILED_PAYMENT", $json_data_input['order']['invoice_number'], '../../');
 						} else {
 							http_response_code(404);
 							$jokulcc->update_notify($order_id_ref, $rawPost, $dateTime, '1', '0');
