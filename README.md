@@ -67,6 +67,15 @@ This `doku_log` is useful to help simplify the process of checking if an issue o
 
 ## Additional Feature
 
+### Sub Account Configuration
+
+1. Login to your PrestaShop Admin Panel
+2. Click Module > Module Manager
+3. You will find "Jokul - CC ", click "Configure" button
+4. Scroll down and you will find Tick Button for Enabling Sub Account Feature
+5. Tick the button, then input your Sub Account ID
+6. Click Save.
+
 ### Split Settlement Configuration
 
 1. Login to your PrestaShop Admin Panel
