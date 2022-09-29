@@ -63,3 +63,21 @@ This `doku_log` is useful to help simplify the process of checking if an issue o
     - **Notification URL**: Copy this URL and paste the URL into the Jokul Back Office. Learn more about how to setup Notification URL for O2O 
 5. Click Save button
 6. Now your customer should be able to see the payment channels and you start receiving payments
+
+
+## Additional Feature
+
+### Split Settlement Configuration
+
+Login to your PrestaShop Admin Panel
+2. Click Module > Module Manager
+3. You will find "Jokul - CC ", click "Configure" button
+4. Scroll down and you will find "List Bank Account"
+ ![Split Settlement Configuration](https://ibb.co/vksdggc)
+5. Click icon **+** to add bank account on the list
+![Split Settlement Configuration - add bank account](https://ibb.co/WgWqHr3)
+8. And you will be redirect to Bank Account Details Configuration
+9. Here is the fields that you required to set:
+   - **Bank Account ID** : Bank Account Settlement ID. You can get this ID from DOKU Back Office.
+   - **Type** : Choose what type that suit to your needs. Possible Option : Percentage and Fix Amount
+   - **Value** : Input the number. Adjust according to the type that you had choose.
