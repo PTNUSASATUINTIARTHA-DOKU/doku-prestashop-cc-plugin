@@ -73,9 +73,9 @@ Login to your PrestaShop Admin Panel
 2. Click Module > Module Manager
 3. You will find "Jokul - CC ", click "Configure" button
 4. Scroll down and you will find "List Bank Account"
- ![Split Settlement Configuration](https://ibb.co/vksdggc)
+ ![Split Settlement Configuration]()
 5. Click icon **+** to add bank account on the list
-![Split Settlement Configuration - add bank account](https://ibb.co/WgWqHr3)
+![Split Settlement Configuration - add bank account](https://i.ibb.co/dG01fNc/Screen-Shot-2022-09-29-at-16-36-35.png)
 8. And you will be redirect to Bank Account Details Configuration
 9. Here is the fields that you required to set:
    - **Bank Account ID** : Bank Account Settlement ID. You can get this ID from DOKU Back Office.
