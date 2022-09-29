@@ -74,8 +74,8 @@ This `doku_log` is useful to help simplify the process of checking if an issue o
 3. You will find "Jokul - CC ", click "Configure" button
 4. Scroll down and you will find "List Bank Account"
 5. Click icon **+** to add bank account on the list
-![Split Settlement Configuration - add bank account](https://i.ibb.co/dG01fNc/Screen-Shot-2022-09-29-at-16-36-35.png)
 6. And you will be redirect to Bank Account Details Configuration
+![Split Settlement Configuration - add bank account](https://i.ibb.co/dG01fNc/Screen-Shot-2022-09-29-at-16-36-35.png)
 7. Here is the fields that you required to set:
    - **Bank Account ID** : Bank Account Settlement ID. You can get this ID from DOKU Back Office.
    - **Type** : Choose what type that suit to your needs. Possible Option : Percentage and Fix Amount
