@@ -2,7 +2,7 @@
 <module>
     <name>jokulcc</name>
     <displayName><![CDATA[Jokul - Credit Card]]></displayName>
-    <version><![CDATA[1.0.0]]></version>
+    <version><![CDATA[1.0.2]]></version>
     <description><![CDATA[Accept payments through Credit Card with Jokul. Make it easy for your customers to purchase on your store.]]></description>
     <author><![CDATA[DOKU]]></author>
     <tab><![CDATA[payments_gateways]]></tab>

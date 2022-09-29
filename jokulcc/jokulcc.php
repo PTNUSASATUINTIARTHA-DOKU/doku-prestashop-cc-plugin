@@ -4,7 +4,7 @@
     Plugin Name : Prestashop DOKU Jokul Credit Card Payment Gateway
     Plugin URI  : http://www.doku.com
     Description : DOKU Jokul Credit Card Payment Gateway for Prestashop 1.7
-    Version     : 1.0.0
+    Version     : 1.0.2
     Author      : DOKU
     Author URI  : http://www.doku.com
 */
@@ -27,7 +27,7 @@ class JokulCc extends PaymentModule
 		$this->name             = 'jokulcc';
 		$this->tab              = 'payments_gateways';
 		$this->author           = 'DOKU';
-		$this->version          = '1.0.0';
+		$this->version          = '1.0.2';
 		$this->need_instance 	= 0;
 		$this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
 		$this->bootstrap 		= true;
@@ -119,12 +119,15 @@ class JokulCc extends PaymentModule
 			Configuration::deleteByName('LANGUAGE');
 			Configuration::deleteByName('BACKGROUND_COLOR');
 			Configuration::deleteByName('FONT_COLOR');
+			Configuration::deleteByName('set_sub_account_sub_account_cc');
+			Configuration::deleteByName('set_sub_account_data_cc');
 			Configuration::deleteByName('BUTTON_BACKGROUND_COLOR');
 			Configuration::deleteByName('BUTTON_FONT_COLOR');
 			Configuration::deleteByName('PAYMENT_CHANNEL');
 			Configuration::deleteByName('PAYMENT_CODE');
 			Configuration::deleteByName('PAYMENT_CHANNELS');
 			Configuration::deleteByName('PAYMENT_CHANNELS_CC');
+			Configuration::deleteByName('LIST_BANK_CC');
 
 			parent::uninstall();
 			Db::getInstance()->Execute("DROP TABLE `" . _DB_PREFIX_ . "jokulcc`");
@@ -164,6 +167,33 @@ class JokulCc extends PaymentModule
 				$this->$_postErrors[] = $this->l('Client ID is required.');
 			if (!Tools::getValue('shared_cc_key_prod'))
 				$this->$_postErrors[] = $this->l('Secret Key is required.');
+
+			if (Tools::getValue('set_sub_account_sub_account_cc')){
+				if (!Tools::getValue('set_sub_account_data_cc'))
+				$this->$_postErrors[] = $this->l('Sub Account is required.');
+			}
+		} else if (Tools::isSubmit('btnSubmitAdd')) {
+			if (!Tools::getValue('bank_account_add_config'))
+				$this->$_postErrors[] = $this->l('Bank Account is required.');
+			if (!Tools::getValue('value_account_add_config'))
+				$this->$_postErrors[] = $this->l('Value must more than 0');
+
+
+			$listContent = array();
+			$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+			$trimspace = preg_replace('/\s+/', '', $listContent);
+			$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+
+			foreach($listDataBank as &$a){
+				if ($a['bank_account_settlement_id'] == Tools::getValue('bank_account_add_config')) {
+					$this->$_postErrors[] = $this->l('Bank account Already exist');
+				}
+			}
+		} else if (Tools::isSubmit('btnSubmitUpdate')) {
+			if (!Tools::getValue('bank_account_config'))
+				$this->$_postErrors[] = $this->l('Bank Account is required.');
+			if (Tools::getValue('value_account_config') < 1)
+				$this->$_postErrors[] = $this->l('Value must more than 0');
 		}
 	}
 
@@ -184,29 +214,356 @@ class JokulCc extends PaymentModule
 			Configuration::updateValue('BUTTON_FONT_COLOR', 					trim(Tools::getValue('buttton_font_color')));
 			Configuration::updateValue('PAYMENT_CHANNELS', 						trim(Tools::getValue('payment_channels')));
 			Configuration::updateValue('PAYMENT_CHANNELS_CC', 				    trim(Tools::getValue('payment_channels_CC')));
+			Configuration::updateValue('set_sub_account_sub_account_cc', 		trim(Tools::getValue('set_sub_account_sub_account_cc')));
+			Configuration::updateValue('set_sub_account_data_cc', 				trim(Tools::getValue('set_sub_account_data_cc')));
+		} else if (Tools::isSubmit('btnSubmitUpdate')) {
+			$listContent = array();
+			$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+			$trimspace = preg_replace('/\s+/', '', $listContent);
+			$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+
+			$bankIdConfig = Tools::safeOutput(Tools::getValue('ID_BANK_VA', Configuration::get('ID_BANK_VA')));
+			foreach($listDataBank as &$a){
+				if($a['bank_id'] == $bankIdConfig){
+					$a['value'] = Tools::getValue('value_account_config');
+					$a['bank_account_settlement_id'] = Tools::getValue('bank_account_config');
+					$a['type'] = Tools::getValue('type_account_config');
+				}
+			}
+			Configuration::updateValue('LIST_BANK_CC', json_encode($listDataBank));
+		} else if (Tools::isSubmit('btnSubmitAdd')) {
+			$listContent = array();
+			$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+			$trimspace = preg_replace('/\s+/', '', $listContent);
+			$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+
+			$maxId = 0;
+			foreach($listDataBank as &$a){
+				if ($a['bank_id'] > $maxId) {
+					$maxId = $a['bank_id'];
+				}
+			}
+
+			$listContentAdd[] = array(
+				'bank_id'							=> $maxId+1,
+				'bank_account_settlement_id' 		=> Tools::getValue('bank_account_add_config'),
+				'type' 								=> Tools::getValue('type_account_add_config'),
+				'value'								=> Tools::getValue('value_account_add_config')
+			);
+
+			$listContentAddItem = array(
+				'bank_id'							=> $maxId+1,
+				'bank_account_settlement_id' 		=> Tools::getValue('bank_account_add_config'),
+				'type' 								=> Tools::getValue('type_account_add_config'),
+				'value'								=> Tools::getValue('value_account_add_config')
+			);
+			if (count($listDataBank) > 0) {
+				array_push( $listDataBank, $listContentAddItem);
+				Configuration::updateValue('LIST_BANK_CC', json_encode($listDataBank));
+			} else {
+				Configuration::updateValue('LIST_BANK_CC', json_encode($listContentAdd));
+			}
 		}
-		$this->_html .= '<div class="alert alert-success conf confirm"> ' . $this->l('Settings updated') . '</div>';
+		Tools::redirectAdmin(
+			$currentIndex.'index.php?tab=AdminModules&configure=' . $this->name . '&token='.Tools::getAdminTokenLite('AdminModules')
+		);
 	}
 
 	public function getContent()
 	{
+		$updateBank = "updatelistBank";
+		$deletebank = "deletelistBank";
+		$addbank ="addlistBank";
+		$full_url = $_SERVER['REQUEST_URI'];
+
+		if(strpos($full_url, $updateBank) !== false) {
+			$listContent = array();
+			$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+			$trimspace = preg_replace('/\s+/', '', $listContent);
+			$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+
+			$parts = parse_url($full_url);
+			parse_str($parts['query'], $query);
+			$bankId = $query['bank_id']-1;
+
+			Configuration::updateValue('ID_BANK_VA', json_encode($bankId+1));
+
+			$this->_html .= '<br />';
+			$this->_html .= $this->_displayBanner();
+			$this->_html .= $this->renderUpdateBankForm($listDataBank[$bankId]);
+		} else if(strpos($full_url, $deletebank) !== false) {
+			$parts = parse_url($full_url);
+			parse_str($parts['query'], $query);
+			$bankId = $query['bank_id']-1;
+
+			$listContent = array();
+			$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+			$trimspace = preg_replace('/\s+/', '', $listContent);
+			$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+			unset($listDataBank[$bankId]);
+			Configuration::updateValue('LIST_BANK_CC', json_encode($listDataBank));
+
+			Tools::redirectAdmin(
+				$currentIndex.'index.php?tab=AdminModules&configure=' . $this->name . '&token='.Tools::getAdminTokenLite('AdminModules')
+			);
+		} else if(strpos($full_url, $addbank) !== false) {
+			$listContent = array();
+			$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+			$trimspace = preg_replace('/\s+/', '', $listContent);
+			$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+
+			$this->_html .= '<br />';
+			$this->_html .= $this->_displayBanner();
+			$this->_html .= $this->renderAddBankForm();
+		} else {
+			$this->renderFormContent();
+		}
+
+		return $this->_html;
+	}
+
+	function renderFormContent() {
 		if (Tools::isSubmit('btnSubmit')) {
 			$this->_postValidation();
 			if (!sizeof($this->$_postErrors)) {
 				$this->_postProcess();
 			} else {
 				foreach ($this->$_postErrors as $err) {
-					$this->_html .= '<div class="alert error">' . $err . '</div>';
+					$this->_html .= '<div style="color:red" class="alert error">' . $err .'</div>';
 				}
 			}
+			$this->_html .= '<br />';
+			$this->_html .= $this->_displayBanner();
+			$this->_html .= $this->renderForm();
+		} else if (Tools::isSubmit('btnSubmitUpdate')) {
+			$this->_postValidation();
+			if (!sizeof($this->$_postErrors)) {
+				$this->_postProcess();
+			} else {
+				foreach ($this->$_postErrors as $err) {
+					$this->_html .= '<div style="color:red" class="alert error">' . $err . '</div>';
+				}
+			}
+			$this->_html .= '<br />';
+			$this->_html .= $this->_displayBanner();
+			$this->_html .= $this->renderUpdateBankForm(null);
+		} else if (Tools::isSubmit('btnSubmitAdd')) {
+			$this->_postValidation();
+			if (!sizeof($this->$_postErrors)) {
+				$this->_postProcess();
+			} else {
+				foreach ($this->$_postErrors as $err) {
+					$this->_html .= '<div style="color:red" class="alert error">' . $err . '</div>';
+				}
+			}
+			$this->_html .= '<br />';
+			$this->_html .= $this->_displayBanner();
+			$this->_html .= $this->renderAddBankForm();
 		} else {
 			$this->_html .= '<br />';
+			$this->_html .= $this->_displayBanner();
+			$this->_html .= $this->renderForm();
 		}
+	}
 
-		$this->_html .= $this->_displayBanner();
-		$this->_html .= $this->renderForm();
+	function getBankFormValues($listDataBank) {
+		return array(
+			'id_account_config' => $listDataBank['bank_id'],
+			'bank_account_config' => $listDataBank['bank_account_settlement_id'],
+			'type_account_config' => $listDataBank['type'],
+			'value_account_config' => $listDataBank['value']
+		);
+	}
 
-		return $this->_html;
+	public function renderAddBankForm() {
+		$type_bank = [
+			[
+				'id_option' => 'PERCENTAGE',
+				'name' 		=> 'PERCENTAGE',
+			],
+
+			[
+				'id_option' => 'FIX',
+				'name' 		=> 'FIX',
+			],
+		];
+
+		$fields_form_update_bank = array(
+			'form' => array(
+				'legend' => [
+					'title' => $this->l('Jokul - Bank Account Configuration'),
+					'icon' => 'icon-cogs'
+				],
+				'input' => 	[
+
+					[
+						'type'  => 'text',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Bank Account'),
+						'name'  => 'bank_account_add_config',
+						'hint'  => [
+							$this->l('Bank Account')
+						],
+					],
+
+					[
+						'type'  => 'select',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Type'),
+						'name'  => 'type_account_add_config',
+						'hint'  => [
+							$this->l('Type Account')
+						],
+						'options' 	=> [
+							'query' => $type_bank,
+							'id' 	=> 'id_option',
+							'name' 	=> 'name'
+						]
+					],
+
+					[
+						'type'  => 'text',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Value'),
+						'name'  => 'value_account_add_config',
+						'hint'  => [
+							$this->l('Value')
+						],
+					],
+				],
+				'submit' => array(
+					'title' => $this->l('Save'),
+					'type' => 'submit'
+				),
+				'buttons' => array(
+					array(
+						'href' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
+						'title' => $this->l('Cancel'),
+						'icon' => 'process-icon-cancel'
+					)
+				)
+			),
+		);
+
+		$helper 				= new HelperForm();
+		$helper->show_toolbar 	= false;
+		$helper->table 			= $this->table;
+		$lang 					= new Language((int)Configuration::get('PS_LANG_DEFAULT'));
+		$helper->default_form_language 		= $lang->id;
+		$helper->allow_employee_form_lang 	= Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
+		$this->fields_form 		= array();
+		$helper->id 			= (int)Tools::getValue('id_carrier');
+		$helper->identifier 	= $this->identifier;
+		$helper->submit_action 	= 'btnSubmitAdd';
+		$helper->currentIndex 	= $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+
+		$helper->token 		= Tools::getAdminTokenLite('AdminModules');
+		$helper->tpl_vars 	= array(
+			'languages' 	=> $this->context->controller->getLanguages(),
+			'id_language' 	=> $this->context->language->id
+		);
+
+		$helperReturn = $helper->generateForm(array($fields_form_update_bank));
+		$return = $helperReturn;
+		
+		return $return;
+	}
+
+	public function renderUpdateBankForm($listDataBank) {
+		$type_bank = [
+			[
+				'id_option' => 'PERCENTAGE',
+				'name' 		=> 'PERCENTAGE',
+			],
+
+			[
+				'id_option' => 'FIX',
+				'name' 		=> 'FIX',
+			],
+		];
+
+		$fields_form_update_bank = array(
+			'form' => array(
+				'legend' => [
+					'title' => $this->l('Jokul - Bank Account Configuration'),
+					'icon' => 'icon-cogs'
+				],
+				'input' => 	[
+					[
+						'type'  => 'hidden',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Bank ID'),
+						'name'  => 'id_account_config',
+						'hint'  => [
+							$this->l('Bank ID')
+						],
+					],
+
+					[
+						'type'  => 'text',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Bank Account'),
+						'name'  => 'bank_account_config',
+						'hint'  => [
+							$this->l('Bank Account')
+						],
+					],
+
+					[
+						'type'  => 'select',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Type'),
+						'name'  => 'type_account_config',
+						'hint'  => [
+							$this->l('Type Account')
+						],
+						'options' 	=> [
+							'query' => $type_bank,
+							'id' 	=> 'id_option',
+							'name' 	=> 'name'
+						]
+					],
+
+					[
+						'type'  => 'text',
+						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Value'),
+						'name'  => 'value_account_config',
+						'hint'  => [
+							$this->l('Value')
+						],
+					],
+				],
+				'submit' => array(
+					'title' => $this->l('Save'),
+					'type' => 'submit'
+				),
+				'buttons' => array(
+					array(
+						'href' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
+						'title' => $this->l('Cancel'),
+						'icon' => 'process-icon-cancel'
+					)
+				)
+			),
+		);
+
+		$helper 				= new HelperForm();
+		$helper->show_toolbar 	= false;
+		$helper->table 			= $this->table;
+		$lang 					= new Language((int)Configuration::get('PS_LANG_DEFAULT'));
+		$helper->default_form_language 		= $lang->id;
+		$helper->allow_employee_form_lang 	= Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
+		$this->fields_form 		= array();
+		$helper->id 			= (int)Tools::getValue('id_carrier');
+		$helper->identifier 	= $this->identifier;
+		$helper->submit_action 	= 'btnSubmitUpdate';
+		$helper->currentIndex 	= $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+
+		$helper->token 		= Tools::getAdminTokenLite('AdminModules');
+		$helper->tpl_vars 	= array(
+			'fields_value' 	=> $this->getBankFormValues($listDataBank),
+			'languages' 	=> $this->context->controller->getLanguages(),
+			'id_language' 	=> $this->context->language->id
+		);
+
+		$helperReturn = $helper->generateForm(array($fields_form_update_bank));
+		$return = $helperReturn;
+		
+		return $return;
 	}
 
 	public function renderForm()
@@ -241,6 +598,13 @@ class JokulCc extends PaymentModule
 				'id_option' => 'EN',
 				'name' 		=> 'EN',
 			],
+		];
+
+		$payment_sub_account = [
+			[
+				'id_option_sub_account'	 => 'sub_account_cc',
+				'name_sub_account' 		 => 'Enable Your Sub Account in Prestashop',
+			]
 		];
 
 		//CONFIGURATION FORM
@@ -389,7 +753,6 @@ class JokulCc extends PaymentModule
 							$this->l('Button Font Color')
 						],
 					],
-
 					[
 						'type'  => 'text',
 						'label' => '<span style="color:red"><b>*</b></span> ' . $this->l('Notification URL'),
@@ -400,12 +763,64 @@ class JokulCc extends PaymentModule
 							$this->l('Notification URL.')
 						],
 					],
+
+					[
+						'type' 		=> 'checkbox',
+						'label' 	=> $this->l('Enabling Sub Account :'),
+						'name' 		=> 'set_sub_account',
+						'multiple' 	=> true,
+
+						'hint' 		=> [
+							$this->l('Choose the payment channels that you can offer to the customers. The payment channels will be presented to the customer on the checkout page.')
+						],
+
+						'values' 	=> [
+							'query'  => $payment_sub_account,
+							'id' 	 => 'id_option_sub_account',
+							'name' 	 => 'name_sub_account'
+						]
+
+					],
+
+					[
+						'type'  => 'text',
+						'label' => '<label id ="label_set_sub_account_data"><span style="color:red">On Behalf Of: *</span></label>',
+						'name'  => 'set_sub_account_data_cc',
+						'desc' => '<label id ="label_desc_sub_account_data">Route to yout Jokul Sub Account ID. All transactions will be linked to this account</label>'
+					],
 				],
 				'submit' => [
 					'title' => $this->l('Save'),
 				]
 			]
 		];
+
+		?>
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> 
+        <script type="text/javascript">
+            jQuery(document).ready(function($) {
+				checkbox_sac_select();
+                $('#set_sub_account_sub_account_cc').click(function() {
+                    checkbox_sac_select();
+                })
+
+				function checkbox_sac_select() {
+                    if($('#set_sub_account_sub_account_cc').is(':checked')) {
+                        $('#set_sub_account_data_cc').fadeIn();
+						$('#label_set_sub_account_data').fadeIn();
+						$('#label_desc_sub_account_data').fadeIn();
+                        $('#set_sub_account_sub_account_cc').prop('required',true);
+                    } else {
+						$('#set_sub_account_data_cc').val("");
+						$('#set_sub_account_data_cc').fadeOut();
+						$('#label_set_sub_account_data').fadeOut();
+						$('#label_desc_sub_account_data').fadeOut();
+                        $('#set_sub_account_sub_account_cc').prop('required',false);
+                    }
+                }; 
+            })
+        </script>
+        <?php
 
 		$helper 				= new HelperForm();
 		$helper->show_toolbar 	= false;
@@ -435,7 +850,68 @@ class JokulCc extends PaymentModule
 			'id_language' 	=> $this->context->language->id
 		);
 
-		return $helper->generateForm(array($fields_form));
+		$helperReturn = $helper->generateForm(array($fields_form));
+		$return = $helperReturn;
+		$return .= $this->renderAdditionalOptionsList();
+		
+		return $return;
+	}
+
+	protected function renderAdditionalOptionsList() {
+		$this->fields_list = array(
+			'bank_id' => array(
+				'title' => $this->l('No'),
+				'orderby' => false,
+				'class' => 'hidden',
+				'type' => 'text',
+				'visible'=>false,
+				'search' => false,
+			),
+			'bank_account_settlement_id' => array(
+				'width' => 'auto',
+				'orderby' => false,
+				'title' => $this->l('Bank Account'),
+				'type' => 'text',
+				'search' => false,
+			),
+			'type' => array(
+				'type' => 'text',
+				'title' => $this->l('Type'),
+				'search' => false,
+				'orderby' => false,
+			),
+			'value' => array(
+				'title' => $this->l('Value'),
+				'type' => 'text',
+				'search' => false,
+				'orderby' => false,
+			)
+		);
+
+		$listContent = array();
+		$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+		$trimspace = preg_replace('/\s+/', '', $listContent);
+		$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+		
+		$helperList = new HelperList();
+		$helperList->shopLinkType = '';
+		$helperList->simple_header = false;
+		$helperList->actions = array('edit', 'delete');
+		$helperList->show_toolbar = false;
+		$helperList->identifier = 'bank_id';
+		$helperList->table = 'listBank';
+
+		$helperList->toolbar_btn['new'] =  array(
+			'href' => AdminController::$currentIndex . '&configure=' . $this->name . '&add' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules').'&'.'addlistBank',
+			'desc' => $this->l('Add')
+		);
+
+		$helperList->title = "List Bank Account";
+		$helperList->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
+		$helperList->token = Tools::getAdminTokenLite('AdminModules');
+
+		$helperList->listTotal = count($listDataBank);
+		return $helperList->generateList($listDataBank, $this->fields_list);
 	}
 
 	public function execPayment($cart)
@@ -536,7 +1012,7 @@ class JokulCc extends PaymentModule
 		$PROCESS_DATETIME    			= date("Y-m-d H:i:s");
 		$PROCESS_TYPE        			= "REQUEST";
 		$amount              			= $total;
-		$PHONE               			= trim($address->phone_mobile);
+		$PHONE               			= trim($address->phone);
 		$PAYMENT_CHANNEL     			= "";
 		$LANGUAGE 						= Tools::safeOutput(Configuration::get('LANGUAGE'));
 		$BACKGROUND_COLOR 				= Tools::safeOutput(Configuration::get('BACKGROUND_COLOR'));
@@ -550,40 +1026,109 @@ class JokulCc extends PaymentModule
 		$requestTarget = "/credit-card/v1/payment-page";
             
 		$customerId = (int)$this->context->cookie->id_customer;
-		$data = array(
-			"customer" => array(
-				"id" => $customerId,
-				"name" => $NAME,
-				"email" => $EMAIL,
-				"phone" => $PHONE,
-				"country" => "ID",
-				"address" => $ADDRESS
-			),
-			"order" => array(
-				"invoice_number" => $invoiceNumber,
-				"line_items" => $itemQty,
-				"amount" => $amount,
-				"failed_url" => _PS_BASE_URL_ . __PS_BASE_URI__."index.php?fc=module&module=jokulcc&controller=request&task=redirectFailed",
-				"callback_url" => _PS_BASE_URL_ . __PS_BASE_URI__."index.php?fc=module&module=jokulcc&controller=request&task=redirect&orderid=".$orderid."&invoiceNumber=".$invoiceNumber."&amount=".$amount,
-				"auto_redirect" => true
-			),
-			"override_configuration" => array(
-				"themes" => array(
-					"language" => $LANGUAGE ,
-					"background_color" => $BACKGROUND_COLOR ,
-					"font_color" => $FONT_COLOR ,
-					"button_background_color" => $BUTTON_BACKGROUND_COLOR ,
-					"button_font_color" => $BUTTON_FONT_COLOR ,
+
+		$listContent = array();
+		$listContent = Tools::safeOutput(Tools::getValue('LIST_BANK_CC', Configuration::get('LIST_BANK_CC')));
+		$trimspace = preg_replace('/\s+/', '', $listContent);
+		$listDataBank = json_decode(htmlspecialchars_decode($trimspace), true);
+		$sub_account_data = Tools::safeOutput(Tools::getValue('set_sub_account_data_cc', Configuration::get('set_sub_account_data_cc')));
+
+		if (count($listDataBank) > 0) {
+
+    		foreach($listDataBank as $key => $item){
+        		unset($listDataBank[$key]["bank_id"]);
+    		}
+
+			$data = array(
+				"customer" => array(
+					"id" => $customerId,
+					"name" => $NAME,
+					"email" => $EMAIL,
+					"phone" => $PHONE,
+					"country" => "ID",
+					"address" => $ADDRESS
+				),
+				"order" => array(
+					"invoice_number" => $invoiceNumber,
+					"line_items" => $itemQty,
+					"amount" => $amount,
+					"failed_url" => _PS_BASE_URL_ . __PS_BASE_URI__."index.php?fc=module&module=jokulcc&controller=request&task=redirectFailed",
+					"callback_url" => _PS_BASE_URL_ . __PS_BASE_URI__."index.php?fc=module&module=jokulcc&controller=request&task=redirect&orderid=".$orderid."&invoiceNumber=".$invoiceNumber."&amount=".$amount,
+					"auto_redirect" => true
+				),
+				"override_configuration" => array(
+					"themes" => array(
+						"language" => $LANGUAGE ,
+						"background_color" => $BACKGROUND_COLOR ,
+						"font_color" => $FONT_COLOR ,
+						"button_background_color" => $BUTTON_BACKGROUND_COLOR ,
+						"button_font_color" => $BUTTON_FONT_COLOR ,
+					)
+				),
+				"additional_info" => $sub_account_data !== '' ? array(
+					"integration" => array (
+						"name" => "prestashop-plugin",
+						"module-name" => "jokul-credit-card",
+						"version" => "1.0.2"
+					),
+					"account" => array(
+						"id" =>  $sub_account_data
+					),
+					"settlement"=> $listDataBank
+				): array(
+					"integration" => array (
+						"name" => "prestashop-plugin",
+						"module-name" => "jokul-credit-card",
+						"version" => "1.0.2"
+					),
+					"settlement"=> $listDataBank
 				)
-			),
-			"additional_info" => array (
-				"integration" => array (
-					"name" => "prestashop-plugin",
-					"module-name" => "jokul-credit-card",
-					"version" => "1.0.0"
+			);
+		} else {
+			$data = array(
+				"customer" => array(
+					"id" => $customerId,
+					"name" => $NAME,
+					"email" => $EMAIL,
+					"phone" => $PHONE,
+					"country" => "ID",
+					"address" => $ADDRESS
+				),
+				"order" => array(
+					"invoice_number" => $invoiceNumber,
+					"line_items" => $itemQty,
+					"amount" => $amount,
+					"failed_url" => _PS_BASE_URL_ . __PS_BASE_URI__."index.php?fc=module&module=jokulcc&controller=request&task=redirectFailed",
+					"callback_url" => _PS_BASE_URL_ . __PS_BASE_URI__."index.php?fc=module&module=jokulcc&controller=request&task=redirect&orderid=".$orderid."&invoiceNumber=".$invoiceNumber."&amount=".$amount,
+					"auto_redirect" => true
+				),
+				"override_configuration" => array(
+					"themes" => array(
+						"language" => $LANGUAGE ,
+						"background_color" => $BACKGROUND_COLOR ,
+						"font_color" => $FONT_COLOR ,
+						"button_background_color" => $BUTTON_BACKGROUND_COLOR ,
+						"button_font_color" => $BUTTON_FONT_COLOR ,
+					)
+				),
+				"additional_info" => $sub_account_data !== '' ? array(
+					"integration" => array (
+						"name" => "prestashop-plugin",
+						"module-name" => "jokul-credit-card",
+						"version" => "1.0.2"
+					),
+					"account" => array(
+						"id" =>  $sub_account_data
+					)
+				): array(
+					"integration" => array (
+						"name" => "prestashop-plugin",
+						"module-name" => "jokul-credit-card",
+						"version" => "1.0.2"
+					)
 				)
-			)
-		);
+			);
+		}
 
 		$bodyJson = json_encode($data);
 		$this->doku_log($this, " CREDIT CARD REQUEST ".$bodyJson, $invoiceNumber, '');
@@ -993,8 +1538,10 @@ class JokulCc extends PaymentModule
 			'font_color'						=> Tools::safeOutput(Tools::getValue('FONT_COLOR', Configuration::get('FONT_COLOR'))),
 			'buttton_background_color'			=> Tools::safeOutput(Tools::getValue('BUTTON_BACKGROUND_COLOR', Configuration::get('BUTTON_BACKGROUND_COLOR'))),
 			'buttton_font_color'				=> Tools::safeOutput(Tools::getValue('BUTTON_FONT_COLOR', Configuration::get('BUTTON_FONT_COLOR'))),
-			'server_cc_dest'						=> Tools::safeOutput(Tools::getValue('SERVER_CC_DEST', 	Configuration::get('SERVER_CC_DEST'))),
-			'notification_url' 					=> _PS_BASE_URL_ . __PS_BASE_URI__ . 'modules/jokulcc/request.php?task=notify'
+			'server_cc_dest'					=> Tools::safeOutput(Tools::getValue('SERVER_CC_DEST', 	Configuration::get('SERVER_CC_DEST'))),
+			'set_sub_account_sub_account_cc'	=> Tools::safeOutput(Tools::getValue('set_sub_account_sub_account_cc', Configuration::get('set_sub_account_sub_account_cc'))),
+			'set_sub_account_data_cc'			=> Tools::safeOutput(Tools::getValue('set_sub_account_data_cc', Configuration::get('set_sub_account_data_cc'))),
+			'notification_url' 					=> Tools::getHttpHost(true). __PS_BASE_URI__ . 'modules/jokulcc/request.php?task=notify'
 		);
 	}
 
